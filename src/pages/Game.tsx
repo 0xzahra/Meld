@@ -3,7 +3,7 @@ import { useGameEngine } from '../hooks/useGameEngine';
 import { useAudioEngine } from '../hooks/useAudioEngine';
 import { Board } from '../components/Board';
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings, Share, ShieldCheck, Diamond, Sparkles } from 'lucide-react';
+import { Settings, Share, ShieldCheck, Diamond, Sparkles, Pause, Play } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Tile } from '../components/Tile';
 
@@ -11,7 +11,7 @@ const MOCK_TILE = { id: 'm', symbol: '🀇', color: 'emerald' };
 
 export const Game = () => {
   const { play, toggleMute, isEnabled } = useAudioEngine();
-  const { grid, activePiece, hintPiece, score, level, hintsRemaining, gameOver, moveLeft, moveRight, moveDown, rotate, hardDrop, restart } = useGameEngine(play);
+  const { grid, activePiece, hintPiece, score, level, hintsRemaining, gameOver, isPaused, togglePause, moveLeft, moveRight, moveDown, rotate, hardDrop, restart } = useGameEngine(play);
   const navigate = useNavigate();
   const [muted, setMuted] = useState(!isEnabled());
   const [isShopOpen, setIsShopOpen] = useState(false);
@@ -33,6 +33,16 @@ export const Game = () => {
     }
   };
 
+  // Pause the game under the hood if tutorial is active to prevent blocks from falling
+  useEffect(() => {
+    if (tutorialStep > 0 && !isPaused) {
+      togglePause();
+    } else if (tutorialStep === 0 && isPaused && !gameOver) {
+      togglePause();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tutorialStep]);
+
   return (
     <div className="min-h-screen bg-obsidian text-white flex flex-col items-center overflow-hidden font-sans relative selection:bg-emerald-500/30 w-full h-[100dvh]">
       
@@ -49,6 +59,9 @@ export const Game = () => {
         </div>
 
         <div className="flex gap-2">
+          <button onClick={() => tutorialStep === 0 && !gameOver && togglePause()} className="p-2 rounded-full hover:bg-[rgba(255,255,255,0.05)] transition text-stone-text hover:text-white">
+            {isPaused && tutorialStep === 0 ? <Play size={18} /> : <Pause size={18} />}
+          </button>
           <button onClick={() => setIsShopOpen(true)} className="p-2 rounded-full hover:bg-[rgba(255,255,255,0.05)] transition relative group">
             <Diamond size={18} className="text-amber-400 group-hover:scale-110 transition" />
             {hintsRemaining === 0 && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></span>}
@@ -76,6 +89,19 @@ export const Game = () => {
               <button onClick={restart} className="btn btn-primary w-full text-sm">Play Again</button>
             </motion.div>
           )}
+
+          {/* Pause Screen Overlay */}
+          {isPaused && !gameOver && tutorialStep === 0 && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="absolute inset-x-4 top-1/4 z-40 flex flex-col items-center justify-center bg-obsidian/90 backdrop-blur-xl p-6 text-center border border-emerald-900 shadow-2xl rounded-2xl max-w-sm mx-auto"
+            >
+              <h2 className="text-3xl font-display uppercase tracking-[2px] mb-6 text-emerald-light italic">Paused</h2>
+              <button onClick={togglePause} className="btn btn-primary w-full text-sm">Resume Game</button>
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
 
@@ -90,11 +116,26 @@ export const Game = () => {
 
         {/* Buttons Overlay */}
         <div className="grid grid-cols-4 gap-2 w-full pointer-events-auto">
-          <button onPointerDown={(e) => { e.preventDefault(); moveLeft(); }} className="h-14 bg-obsidian/70 backdrop-blur-md rounded-xl border border-[rgba(255,255,255,0.05)] shadow-[0_4px_20px_rgba(0,0,0,0.5)] flex items-center justify-center text-white hover:bg-obsidian/90 transition active:scale-95 text-xl">→</button>
-          <button onPointerDown={(e) => { e.preventDefault(); rotate(); }} className="h-14 bg-obsidian/70 backdrop-blur-md rounded-xl border border-[rgba(255,255,255,0.05)] shadow-[0_4px_20px_rgba(0,0,0,0.5)] flex items-center justify-center text-white hover:bg-obsidian/90 transition active:scale-95 text-xl">↻</button>
-          <button onPointerDown={(e) => { e.preventDefault(); moveDown(); }} className="h-14 bg-obsidian/70 backdrop-blur-md rounded-xl border border-[rgba(255,255,255,0.05)] shadow-[0_4px_20px_rgba(0,0,0,0.5)] flex items-center justify-center text-white hover:bg-obsidian/90 transition active:scale-95 text-xl">↓</button>
-          <button onPointerDown={(e) => { e.preventDefault(); moveRight(); }} className="h-14 bg-obsidian/70 backdrop-blur-md rounded-xl border border-[rgba(255,255,255,0.05)] shadow-[0_4px_20px_rgba(0,0,0,0.5)] flex items-center justify-center text-white hover:bg-obsidian/90 transition active:scale-95 text-xl">→</button>
-          <button onPointerDown={(e) => { e.preventDefault(); hardDrop(); }} className="col-span-4 h-14 bg-[rgba(6,78,59,0.5)] backdrop-blur-md rounded-xl border border-emerald-500/30 shadow-[0_4px_20px_rgba(6,78,59,0.3)] flex items-center justify-center text-emerald-light uppercase tracking-[4px] text-xs font-bold hover:bg-[rgba(6,78,59,0.7)] transition active:scale-95">DROP</button>
+          <button onPointerDown={(e) => { e.preventDefault(); moveLeft(); }} className="h-14 relative overflow-hidden rounded-xl bg-gradient-to-b from-[#334155] to-[#0f172a] border border-black/80 flex items-center justify-center text-white transition active:scale-95 active:translate-y-[2px] text-xl font-bold font-display shadow-[inset_0_2px_3px_rgba(255,255,255,0.2),inset_0_-4px_4px_rgba(0,0,0,0.9),0_5px_15px_rgba(0,0,0,0.9)] hover:brightness-110 border-t-white/20 border-b-black">
+             <div className="absolute top-0 left-0 right-0 h-[35%] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+             ←
+          </button>
+          <button onPointerDown={(e) => { e.preventDefault(); rotate(); }} className="h-14 relative overflow-hidden rounded-xl bg-gradient-to-b from-[#334155] to-[#0f172a] border border-black/80 flex items-center justify-center text-white transition active:scale-95 active:translate-y-[2px] text-xl font-bold font-display shadow-[inset_0_2px_3px_rgba(255,255,255,0.2),inset_0_-4px_4px_rgba(0,0,0,0.9),0_5px_15px_rgba(0,0,0,0.9)] hover:brightness-110 border-t-white/20 border-b-black">
+             <div className="absolute top-0 left-0 right-0 h-[35%] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+             ↻
+          </button>
+          <button onPointerDown={(e) => { e.preventDefault(); moveDown(); }} className="h-14 relative overflow-hidden rounded-xl bg-gradient-to-b from-[#334155] to-[#0f172a] border border-black/80 flex items-center justify-center text-white transition active:scale-95 active:translate-y-[2px] text-xl font-bold font-display shadow-[inset_0_2px_3px_rgba(255,255,255,0.2),inset_0_-4px_4px_rgba(0,0,0,0.9),0_5px_15px_rgba(0,0,0,0.9)] hover:brightness-110 border-t-white/20 border-b-black">
+             <div className="absolute top-0 left-0 right-0 h-[35%] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+             ↓
+          </button>
+          <button onPointerDown={(e) => { e.preventDefault(); moveRight(); }} className="h-14 relative overflow-hidden rounded-xl bg-gradient-to-b from-[#334155] to-[#0f172a] border border-black/80 flex items-center justify-center text-white transition active:scale-95 active:translate-y-[2px] text-xl font-bold font-display shadow-[inset_0_2px_3px_rgba(255,255,255,0.2),inset_0_-4px_4px_rgba(0,0,0,0.9),0_5px_15px_rgba(0,0,0,0.9)] hover:brightness-110 border-t-white/20 border-b-black">
+             <div className="absolute top-0 left-0 right-0 h-[35%] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+             →
+          </button>
+          <button onPointerDown={(e) => { e.preventDefault(); hardDrop(); }} className="col-span-4 h-14 relative overflow-hidden rounded-xl bg-gradient-to-b from-[#10b981] to-[#064E3B] border border-black/80 flex items-center justify-center text-white transition active:scale-95 active:translate-y-[2px] text-xs font-bold font-display tracking-[4px] shadow-[inset_0_2px_3px_rgba(255,255,255,0.5),inset_0_-4px_4px_rgba(0,0,0,0.6),0_5px_15px_rgba(16,185,129,0.5)] uppercase hover:brightness-110 border-t-white/50 border-b-black text-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+             <div className="absolute top-0 left-0 right-0 h-[35%] bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
+             <span className="drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">DROP</span>
+          </button>
         </div>
       </div>
 

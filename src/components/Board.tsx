@@ -9,7 +9,6 @@ interface BoardProps {
 }
 
 export const Board: React.FC<BoardProps> = ({ grid, activePiece, hintPiece }) => {
-  // Combine grid and active pieces for rendering
   const renderGrid = grid.map(r => [...r]);
   
   if (hintPiece) {
@@ -33,9 +32,9 @@ export const Board: React.FC<BoardProps> = ({ grid, activePiece, hintPiece }) =>
   }
 
   return (
-    <div className="relative border-2 border-emerald-900 border-opacity-70 bg-obsidian overflow-hidden touch-none h-full w-full max-w-[360px] flex items-center justify-center shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]">
+    <div className="relative h-full aspect-[10/20] mx-auto border-[3px] border-[#0f172a] bg-[#0a111a] rounded-[8px] shadow-[0_10px_30px_rgba(0,0,0,0.8),inset_0_0_20px_rgba(0,0,0,1)] ring-1 ring-emerald-900/50 flex flex-col p-1 overflow-hidden touch-none">
       <div 
-        className="grid w-full h-full" 
+        className="w-full h-full grid gap-[2px]" 
         style={{ 
           gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`,
           gridTemplateRows: `repeat(${ROWS}, minmax(0, 1fr))` 
@@ -43,7 +42,7 @@ export const Board: React.FC<BoardProps> = ({ grid, activePiece, hintPiece }) =>
       >
         {renderGrid.map((row, r) =>
           row.map((tile, c) => (
-            <div key={`${r}-${c}`} className="w-full h-full border-[0.5px] border-emerald-900/10">
+            <div key={`${r}-${c}`} className="w-full h-full bg-[#020617]/50 rounded-[4px] shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)] border border-white/[0.02]">
               <Tile data={tile} />
             </div>
           ))

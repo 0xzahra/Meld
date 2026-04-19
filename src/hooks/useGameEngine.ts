@@ -115,6 +115,7 @@ export function useGameEngine(onPlaySound: (sound: 'drop' | 'slide' | 'fracture'
   const [level, setLevel] = useState(1);
   const [gameOver, setGameOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   
   const [hintsRemaining, setHintsRemaining] = useState(3);
   const [hintPiece, setHintPiece] = useState<ActivePiece | null>(null);
@@ -136,9 +137,11 @@ export function useGameEngine(onPlaySound: (sound: 'drop' | 'slide' | 'fracture'
     setHintPiece(null);
   }, []);
 
+  const togglePause = useCallback(() => setIsPaused(p => !p), []);
+
   useEffect(() => {
     const i = setInterval(() => {
-      if (!gameOver && !isProcessing && activePiece && !hintPiece && hintsRemaining > 0) {
+      if (!gameOver && !isProcessing && !isPaused && activePiece && !hintPiece && hintsRemaining > 0) {
         if (Date.now() - lastMoveTimeRef.current > 5000) {
             const best = calculateOptimalDrop(grid, activePiece);
             if (best) {
@@ -146,10 +149,13 @@ export function useGameEngine(onPlaySound: (sound: 'drop' | 'slide' | 'fracture'
               setHintsRemaining(h => h - 1);
             }
         }
+      } else {
+        // Reset idle timer if paused or loading so it doesn't instantly hint when unpaused
+        lastMoveTimeRef.current = Date.now();
       }
     }, 1000);
     return () => clearInterval(i);
-  }, [gameOver, isProcessing, activePiece, grid, hintPiece, hintsRemaining]);
+  }, [gameOver, isProcessing, isPaused, activePiece, grid, hintPiece, hintsRemaining]);
 
   const processMatches = useCallback(async (currentGrid: GridData) => {
     let nextGrid = currentGrid.map(r => [...r]);
@@ -311,7 +317,7 @@ export function useGameEngine(onPlaySound: (sound: 'drop' | 'slide' | 'fracture'
 
 
   const movePiece = useCallback((dx: number, dy: number) => {
-    if (gameOver || isProcessing || !activePiece) return false;
+    if (gameOver || isProcessing || isPaused || !activePiece) return false;
     
     const newPiece = { ...activePiece, x: activePiece.x + dx, y: activePiece.y + dy };
     if (isValidPos(newPiece, grid)) {
@@ -323,10 +329,10 @@ export function useGameEngine(onPlaySound: (sound: 'drop' | 'slide' | 'fracture'
       lockPiece();
     }
     return false;
-  }, [activePiece, grid, lockPiece, gameOver, isProcessing, onPlaySound, updateIdle]);
+  }, [activePiece, grid, lockPiece, gameOver, isProcessing, isPaused, onPlaySound, updateIdle]);
 
   const rotatePiece = useCallback(() => {
-    if (gameOver || isProcessing || !activePiece) return;
+    if (gameOver || isProcessing || isPaused || !activePiece) return;
     
     // Rotate shape (x,y) -> (-y, x)
     const newShape = activePiece.shape.map(c => ({ x: -c.y, y: c.x }));
@@ -337,10 +343,10 @@ export function useGameEngine(onPlaySound: (sound: 'drop' | 'slide' | 'fracture'
       setActivePiece(newPiece);
       updateIdle();
     }
-  }, [activePiece, grid, gameOver, isProcessing, onPlaySound, updateIdle]);
+  }, [activePiece, grid, gameOver, isProcessing, isPaused, onPlaySound, updateIdle]);
 
   const hardDrop = useCallback(() => {
-    if (gameOver || isProcessing || !activePiece) return;
+    if (gameOver || isProcessing || isPaused || !activePiece) return;
     let newPiece = { ...activePiece };
     while (isValidPos({ ...newPiece, y: newPiece.y + 1 }, grid)) {
       newPiece.y += 1;
@@ -369,21 +375,22 @@ export function useGameEngine(onPlaySound: (sound: 'drop' | 'slide' | 'fracture'
       setActivePiece(null);
       processMatches(newGrid);
     }
-  }, [activePiece, grid, processMatches, gameOver, isProcessing, onPlaySound, updateIdle]);
+  }, [activePiece, grid, processMatches, gameOver, isProcessing, isPaused, onPlaySound, updateIdle]);
 
   // Gravity Loop
   useEffect(() => {
-    if (gameOver || isProcessing) return;
+    if (gameOver || isProcessing || isPaused) return;
     const interval = setInterval(() => {
       movePiece(0, 1);
     }, Math.max(200, 800 - (level * 50)));
     return () => clearInterval(interval);
-  }, [movePiece, gameOver, isProcessing, level]);
+  }, [movePiece, gameOver, isProcessing, isPaused, level]);
 
   // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') movePiece(-1, 0);
+      if (e.key === 'p' || e.key === 'Escape') togglePause();
+      else if (e.key === 'ArrowLeft') movePiece(-1, 0);
       else if (e.key === 'ArrowRight') movePiece(1, 0);
       else if (e.key === 'ArrowDown') movePiece(0, 1);
       else if (e.key === 'ArrowUp') rotatePiece();
@@ -391,7 +398,7 @@ export function useGameEngine(onPlaySound: (sound: 'drop' | 'slide' | 'fracture'
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [movePiece, rotatePiece, hardDrop]);
+  }, [movePiece, rotatePiece, hardDrop, togglePause]);
 
   return {
     grid,
@@ -402,6 +409,8 @@ export function useGameEngine(onPlaySound: (sound: 'drop' | 'slide' | 'fracture'
     hintsRemaining,
     gameOver,
     isProcessing,
+    isPaused,
+    togglePause,
     moveLeft: () => movePiece(-1, 0),
     moveRight: () => movePiece(1, 0),
     moveDown: () => movePiece(0, 1),
@@ -414,6 +423,7 @@ export function useGameEngine(onPlaySound: (sound: 'drop' | 'slide' | 'fracture'
       setHintsRemaining(3);
       setHintPiece(null);
       setGameOver(false);
+      setIsPaused(false);
       setActivePiece(generatePiece());
       setIsProcessing(false);
       updateIdle();
